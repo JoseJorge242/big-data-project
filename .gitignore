@@ -18,3 +18,11 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+**/.streamlit/secrets.toml
+__pycache__/
+*.pyc
+terraform.tfvars
+*.tfstate
+*.tfstate.backup
+.terraform/

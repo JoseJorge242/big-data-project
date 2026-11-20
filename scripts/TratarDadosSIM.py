@@ -9,8 +9,6 @@ input_dir = "data/versao.original"
 output_dir = "data/versao.resultado"
 os.makedirs(output_dir, exist_ok=True)
 
-# Causas de trânsito mantidas e transportes não rodoviários excluídos.
-# Confira a lista impressa ao final da execução e ajuste se necessário.
 PALAVRAS_CHAVE = "transporte|Pedestre|Ciclista|Motociclista|triciclo"
 EXCLUIR = "água|aquátic|aére|aereo|espaci"
 

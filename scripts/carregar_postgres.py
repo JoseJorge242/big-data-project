@@ -20,7 +20,6 @@ engine = create_engine(
 PASTA = "data/versao.resultado"
 INT = "Int64"
 
-# arquivo -> (tabela, dtypes, colunas de data)
 TABELAS = {
     "tratado_sim_genero.csv": ("tb_sim_genero", {}, []),
     "tratado_sim_raca.csv": ("tb_sim_raca", {}, []),

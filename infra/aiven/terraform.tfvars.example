@@ -1,0 +1,4 @@
+aiven_project = "bigdata-analise-de-transito-odd-5-odd18"
+service_name  = "pg-19281e81"
+cloud_name    = "COPIE_DO_CONSOLE_AIVEN"
+plan          = "COPIE_DO_CONSOLE_AIVEN"   
