@@ -6,8 +6,28 @@
 ![MinIO](https://img.shields.io/badge/MinIO-S3%20Data%20Lake-C72E49?logo=minio&logoColor=white)
 ![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?logo=terraform&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Containers-2496ED?logo=docker&logoColor=white)
+![Aiven](https://img.shields.io/badge/Aiven-PostgreSQL%20gerenciado-FF3554)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit&logoColor=white)
+![Plotly](https://img.shields.io/badge/Plotly-Gr%C3%A1ficos-3F4F75?logo=plotly&logoColor=white)
 
 Solução completa de **Engenharia de Dados** para ingestão, tratamento, modelagem, carga relacional e provisionamento de infraestrutura como código (IaC) a partir de três bases públicas oficiais do governo brasileiro: acidentes rodoviários (**PRF**), mortalidade (**SIM/DATASUS**) e indicadores de óbitos no trânsito (**MGDI / Ministério da Saúde**).
+
+O recorte analítico é orientado pela **ODS 5 (Igualdade de Gênero)** e pela **ODS 18 (Igualdade Étnico-Racial)**, e os resultados são apresentados em um **dashboard interativo** conectado diretamente ao banco PostgreSQL gerenciado no **Aiven**.
+
+---
+
+## 🚀 Acesso Rápido
+
+| | |
+|---|---|
+| **🔗 Dashboard publicado** | https://big-data-project-sbqwmipsjzjwtopxganx2j.streamlit.app/ |
+| **📖 Detalhes e indicadores** | [Seção 11 – Dashboard Analítico](#11-dashboard-analítico) |
+| **🧠 Análise crítica (ODS 5 e 18)** | [Seção 12 – Análise Crítica](#12-análise-crítica-ods-5-e-ods-18) |
+| **▶️ Rodar localmente** | Comando único abaixo (requer o `secrets.toml` descrito na [seção 13](#13-execução-e-deploy-do-dashboard)) |
+
+```bash
+pip install -r dashboard/requirements.txt && streamlit run dashboard/app.py
+```
 
 ---
 
@@ -26,6 +46,9 @@ Solução completa de **Engenharia de Dados** para ingestão, tratamento, modela
 - [8. Solução de Problemas](#8-solução-de-problemas)
 - [9. Segurança](#9-segurança)
 - [10. Próximos Passos](#10-próximos-passos)
+- [11. Dashboard Analítico](#11-dashboard-analítico)
+- [12. Análise Crítica: ODS 5 e ODS 18](#12-análise-crítica-ods-5-e-ods-18)
+- [13. Execução e Deploy do Dashboard](#13-execução-e-deploy-do-dashboard)
 - [Licença e Autoria](#licença-e-autoria)
 
 ---
@@ -41,6 +64,7 @@ Para isso, a solução:
 3. **Modela** os dados em tabelas relacionais prontas para análise.
 4. **Provisiona** a infraestrutura (PostgreSQL + MinIO) de forma declarativa com Terraform e Docker.
 5. **Carrega** os dados tratados no PostgreSQL de maneira automatizada.
+6. **Visualiza** os dados em um **dashboard Streamlit** publicado, conectado diretamente ao PostgreSQL no Aiven, com 4 indicadores-chave, 4 gráficos analíticos e filtros dinâmicos (seção 11).
 
 ---
 
@@ -66,6 +90,9 @@ O projeto adota **armazenamento em camadas** (Data Lake + Relacional), no padrã
 
 ```text
 big-data-project/
+├── dashboard/
+│   ├── app.py                    # Dashboard Streamlit (consulta o PostgreSQL)
+│   └── requirements.txt          # Dependências do dashboard
 ├── data/
 │   ├── versao.original/          # Bronze: CSVs brutos (SIM, PRF, MGDI)
 │   └── versao.resultado/         # Silver: CSVs tratados
@@ -74,6 +101,8 @@ big-data-project/
 │   ├── TratarAcidentes2021a25.py # ETL dos acidentes PRF (2021-2025)
 │   ├── TratarMgdi.py             # ETL do MGDI (processamento em chunks)
 │   └── carregar_postgres.py      # Carga das tabelas no PostgreSQL
+├── infra/
+│   └── aiven/                    # Terraform do PostgreSQL gerenciado (Aiven) + README próprio
 ├── main.tf                       # Infraestrutura (Docker via Terraform)
 ├── terraform.tfvars.example      # Modelo das variáveis sensíveis
 ├── .gitignore                    # Bloqueia terraform.tfvars e artefatos locais
@@ -253,6 +282,40 @@ A infraestrutura é provisionada de forma declarativa com **Terraform** sobre co
 | `docker_volume.minio_data` | Volume persistente do MinIO |
 | `docker_container.postgres_db` | Contêiner do PostgreSQL (porta externa `5432`) |
 | `docker_container.minio_s3` | Contêiner do MinIO (portas `9000` e `9001`) |
+
+
+### Nuvem: PostgreSQL gerenciado no Aiven (`infra/aiven/`)
+
+Além do ambiente local acima, o banco consumido pelo **dashboard publicado** é provisionado no **Aiven** com Terraform, em um módulo separado (`infra/aiven/`) também versionado neste repositório. O Docker local continua válido para desenvolvimento.
+
+| Recurso | Descrição |
+|---------|-----------|
+| `aiven_pg.transito` | Serviço PostgreSQL (projeto, nuvem/região, plano e nome vindos de variáveis; versão padrão `16`). Possui `prevent_destroy = true` para impedir remoção acidental |
+| `aiven_pg_database.transito` | Banco de dados `db_transito_brasil` dentro do serviço |
+| `ip_filter_object` | Libera `0.0.0.0/0`, pois o Streamlit Cloud usa IPs dinâmicos (ver [seção 13.4](#134-segurança)) |
+
+| Variável | Obrigatória | Descrição |
+|----------|-------------|-----------|
+| `aiven_api_token` | sim (`sensitive`) | Token de API do Aiven. Informar por `TF_VAR_aiven_api_token`, nunca em arquivo |
+| `aiven_project` | sim | Nome do projeto no Aiven |
+| `service_name` | sim | Nome do serviço PostgreSQL |
+| `cloud_name` | sim | Nuvem/região (copiar do console do Aiven) |
+| `plan` | sim | Plano do serviço (copiar do console do Aiven) |
+| `pg_version` | não (`16`) | Versão major do PostgreSQL |
+| `db_name` | não (`db_transito_brasil`) | Banco de dados da aplicação |
+
+**Outputs:** `host`, `port` e `service_uri` (este marcado como `sensitive`; obter com `terraform output -raw service_uri`).
+
+```bash
+cd infra/aiven
+cp terraform.tfvars.example terraform.tfvars    # preencher cloud_name e plan
+export TF_VAR_aiven_api_token="SEU_TOKEN"       # PowerShell: $env:TF_VAR_aiven_api_token="SEU_TOKEN"
+terraform init
+terraform plan
+terraform apply
+```
+
+O passo a passo completo (inclusive como **importar** um serviço criado manualmente pelo console) está em [`infra/aiven/README.md`](infra/aiven/README.md). A carga dos dados no Aiven e a publicação do dashboard estão na [seção 13](#13-execução-e-deploy-do-dashboard).
 
 ---
 
@@ -470,8 +533,203 @@ ORDER BY a."Ano", a.uf;
 - [ ] Envio automatizado dos CSVs tratados ao bucket MinIO
 - [ ] Criação de chaves, índices e tabelas-dimensão (UF, município, tempo) no PostgreSQL
 - [ ] Testes de qualidade de dados (ex.: Great Expectations)
-- [ ] Dashboard analítico (Metabase, Superset ou Power BI)
+- [x] Dashboard analítico (Streamlit + Plotly, conectado ao Aiven) — ver [seção 11](#11-dashboard-analítico)
 - [ ] Pipeline de CI para validar scripts e `terraform validate`
+
+---
+
+## 11. Dashboard Analítico
+
+O dashboard (`dashboard/app.py`) é uma aplicação **Streamlit** que executa consultas SQL parametrizadas, via SQLAlchemy, **diretamente no PostgreSQL do Aiven**. Não há arquivos intermediários: tudo o que aparece na tela vem do banco.
+
+**🔗 Dashboard publicado:** https://big-data-project-sbqwmipsjzjwtopxganx2j.streamlit.app/
+
+### 11.1 Arquitetura de implantação
+
+```mermaid
+flowchart LR
+    ETL["ETL Python +<br/>carregar_postgres.py"] --> PG
+    subgraph Aiven["Aiven (Terraform: infra/aiven/)"]
+        PG[("PostgreSQL 16<br/>db_transito_brasil")]
+    end
+    subgraph Cloud["Streamlit Community Cloud"]
+        APP["dashboard/app.py<br/>Streamlit + Plotly"]
+    end
+    USER(["Usuário no navegador"])
+    PG -- "SQL parametrizado (SQLAlchemy)<br/>cache de 60 s" --> APP
+    APP -- "filtros e gráficos" --> USER
+```
+
+### 11.2 Interface
+
+![Dashboard publicado: indicadores-chave e gráficos 1 e 2](docs/img/dashboard-1.png)
+
+![Dashboard publicado: gráficos 3 e 4](docs/img/dashboard-2.png)
+
+*Capturas do dashboard publicado, com os filtros padrão (período 2021–2025, todas as UFs, sexos e faixas etárias, grupo CID-10 "Acidentes de transporte").*
+
+Estrutura da tela:
+
+```text
+┌──────────────┬──────────────────────────────────────────────────────────┐
+│  FILTROS     │  Trânsito e mortalidade no Brasil                        │
+│              │  ODS 5 e ODS 18 · SIM/DATASUS, PRF e MGDI/MS             │
+│ Período      ├───────────────┬───────────────┬───────────────┬──────────┤
+│ UF           │ Óbitos no     │ % mulheres    │ % pretos +    │ UF com   │
+│ Sexo         │ trânsito (SIM)│               │ pardos        │ mais     │
+│ Faixa etária │               │               │               │ óbitos   │
+│ Grupo CID-10 ├───────────────┴───────┬───────┴───────────────┴──────────┤
+│              │ 1 · Óbitos por sexo   │ 2 · Taxa por 100 mil hab. por    │
+│              │     por ano           │     sexo e faixa etária          │
+│              ├───────────────────────┼──────────────────────────────────┤
+│              │ 3 · Óbitos por        │ 4 · Ranking de UFs: óbitos em    │
+│              │     raça/cor (% ano)  │     rodovias federais (PRF)      │
+│              ├───────────────────────┴──────────────────────────────────┤
+│              │ ▸ Ver dados consultados (tabelas por fonte)              │
+└──────────────┴──────────────────────────────────────────────────────────┘
+```
+
+### 11.3 Os 4 indicadores-chave (cartões no topo)
+
+| # | Indicador | Fonte | Como é calculado | ODS |
+|---|-----------|-------|------------------|-----|
+| **1** | **Óbitos no trânsito (SIM)** | `tb_sim_genero` | `SUM(total)` no período e nos grupos CID-10 selecionados. Por padrão usa o grupo **"Acidentes de transporte"**, que já é o total | 5 e 18 |
+| **2** | **% mulheres** | `tb_sim_genero` | `SUM(fem) ÷ SUM(total)` com os mesmos filtros | **5** |
+| **3** | **% pretos + pardos** | `tb_sim_raca` | `(SUM(preta) + SUM(parda)) ÷ soma de todas as categorias de raça/cor`, **incluindo "ignorado"** no denominador | **18** |
+| **4** | **UF com mais óbitos (PRF)** | `tb_acidentes` | UF com o maior número de pessoas em estado físico "Óbito" no período (apenas rodovias federais) | 5 |
+
+### 11.4 Os 4 gráficos analíticos
+
+| # | Gráfico | Fonte | O que mostra | Detalhes de cálculo |
+|---|---------|-------|--------------|---------------------|
+| **1** | **Óbitos por sexo ao longo dos anos** (barras agrupadas) | SIM | Evolução anual de óbitos masculinos e femininos (**ODS 5**) | Soma por ano de `masc` e `fem` |
+| **2** | **Taxa por 100 mil hab. por sexo e faixa etária** (barras agrupadas) | MGDI | Risco de morrer no trânsito por sexo em cada faixa etária (**ODS 5**) | `Σ obitos_transito ÷ Σ populacao_estimada × 100.000`. Usa **taxas**, não contagens, pois as faixas etárias têm larguras diferentes |
+| **3** | **Óbitos por raça/cor** (barras empilhadas, 100 %) | SIM | Composição racial dos óbitos por ano (**ODS 18**) | A fatia "ignorado" funciona como indicador de qualidade do registro |
+| **4** | **Ranking de UFs: óbitos em rodovias federais** (barras horizontais, top 10) | PRF | UFs com mais óbitos; o *hover* mostra nº de acidentes e óbitos femininos (**ODS 5**) | Óbitos = pessoas com `estado_fisico` "Óbito"; acidentes = `COUNT(DISTINCT id)` |
+
+O expansor **"Ver dados consultados"**, no fim da página, exibe as tabelas retornadas pelo banco, o que permite auditar os números e demonstrar a consulta em tempo real.
+
+### 11.5 Filtros dinâmicos (barra lateral)
+
+| Filtro | Tipo | Afeta |
+|--------|------|-------|
+| **Período** | Slider de intervalo de anos | Todos os indicadores e gráficos |
+| **UF (PRF e MGDI)** | Seleção única (`Todas` + UFs) | Indicador 4 e gráficos 2 e 4 (o SIM não tem UF) |
+| **Sexo (MGDI)** | Multisseleção | Gráfico 2 |
+| **Faixa etária (MGDI)** | Multisseleção | Gráfico 2 |
+| **Grupo CID-10 (SIM)** | Multisseleção | Indicadores 1 a 3 e gráficos 1 e 3 |
+
+> **Atenção ao filtro de Grupo CID-10:** "Acidentes de transporte" é o **total**. Para detalhar por subgrupo (pedestre, motociclista etc.), marque apenas os subgrupos e **desmarque o total**, senão há dupla contagem.
+
+Quando uma combinação de filtros não retorna registros, o painel exibe "Sem dados para o filtro" em vez de um gráfico quebrado.
+
+### 11.6 Conexão com o banco e decisões técnicas
+
+- A URL de conexão vem de `st.secrets["db_url"]`; **nenhuma credencial está no código**.
+- `@st.cache_resource` mantém um único *engine* SQLAlchemy, com `pool_pre_ping=True` para reconectar caso o Aiven derrube uma conexão ociosa.
+- `@st.cache_data(ttl=60)` guarda cada resultado por até 60 s: mudanças no banco aparecem em até 1 minuto e interações repetidas não sobrecarregam o banco.
+- Todas as consultas usam **parâmetros nomeados** (`:i`, `:f`, `:uf`…), sem concatenar entrada do usuário no SQL.
+- A agregação é feita **no banco** (`GROUP BY`); o Streamlit apenas desenha os resultados.
+- Os índices criados na carga (`ix_acid_ano_uf`, `ix_acid_pessoa`, `ix_mgdi_ano_uf`) aceleram os filtros de ano/UF e as contagens distintas.
+- Os óbitos da PRF são contados pelo `estado_fisico` e os acidentes por `COUNT(DISTINCT id)`, pois a base está no nível pessoa (uma linha por envolvido).
+- O gráfico 2 usa **taxa por 100 mil habitantes** (e não contagem) para comparar faixas etárias de tamanhos diferentes.
+
+---
+
+## 12. Análise Crítica: ODS 5 e ODS 18
+
+### 12.1 Principais achados
+
+> Valores lidos no dashboard publicado com os filtros padrão: **período 2021–2025**, todas as UFs, todos os sexos e faixas etárias, e o grupo CID-10 "Acidentes de transporte". Os valores dos cartões são exatos; os lidos diretamente dos gráficos são aproximados (os números exatos estão no expansor **"Ver dados consultados"**).
+
+- **Dimensão do problema** (cartão 1): o SIM registra **182.069 óbitos** no trânsito entre 2021 e 2025.
+- **ODS 5, composição por sexo** (cartão 2 e gráfico 1): as mulheres respondem por **17,2 %** dos óbitos; os homens concentram a grande maioria. Por ano, são cerca de 29 a 31 mil óbitos masculinos contra cerca de 6 mil femininos, com leve alta em 2024 e 2025.
+- **ODS 5, risco por faixa etária** (gráfico 2): a maior taxa masculina está na faixa de **20 a 49 anos**, com cerca de **37 óbitos por 100 mil habitantes**, e se mantém entre 35 e 37 por 100 mil nas faixas de 50 a 69 e de 70 anos ou mais. Entre as mulheres, a maior taxa está na faixa de **70 anos ou mais**, com cerca de **9 por 100 mil**. Na faixa de 20 a 49 anos, o risco masculino é cerca de **6 vezes** o feminino; entre 15 e 19 anos, cerca de 4 vezes.
+- **ODS 5, recorte territorial** (cartão 4 e gráfico 4): **Minas Gerais (MG)** é a UF com mais óbitos nas rodovias federais (acima de 3,5 mil no período), seguida por **PR, BA, SC e RS**.
+- **ODS 18, composição racial** (cartão 3 e gráfico 3): pretos e pardos somam **60,5 %** dos óbitos (com "ignorado" no denominador). A composição é praticamente estável de 2021 a 2025: cerca de 54 % pardos, 38 % brancos e 6 % pretos.
+- **ODS 18, qualidade do registro** (gráfico 3): a categoria "ignorado" é muito pequena, da ordem de 1 % a 2 % ao ano, o que indica bom preenchimento de raça/cor no período e dá mais segurança à leitura do indicador.
+
+### 12.2 O que a análise revela
+
+1. **Contagem não é risco.** Comparar apenas o número de óbitos esconde diferenças de população e de largura das faixas etárias. Por isso o gráfico 2 usa taxa por 100 mil habitantes, e é ele que permite afirmar algo sobre o risco por sexo (ODS 5).
+2. **Gênero exige duas leituras combinadas.** A composição por sexo (cartão 2 e gráfico 1) mostra *quem são as vítimas*; a taxa por faixa etária (gráfico 2) mostra *quem está mais exposto por habitante*. Juntas, separam a proporção de vítimas do risco individual.
+3. **Raça/cor mostra composição, não risco.** O gráfico 3 evidencia o perfil racial das vítimas, mas, sem a população de cada grupo como denominador, ele sozinho não comprova desigualdade de risco (ODS 18). Essa conclusão exigiria comparar o resultado com a participação de cada grupo na população (por exemplo, Censo/IBGE).
+4. **A qualidade do registro é, em si, um indicador de equidade.** A fatia "ignorado" do gráfico 3 mostra o quanto a informação de raça/cor deixa de ser preenchida; quanto maior, menos confiável é qualquer leitura racial.
+5. **Fontes distintas respondem a perguntas distintas.** O SIM dá o panorama nacional por sexo e raça/cor, o MGDI dá taxas por UF, sexo e faixa etária, e a PRF dá o recorte das rodovias federais. A integração das três é o que permite olhar as duas ODS ao mesmo tempo.
+6. **Há armadilhas de dupla contagem.** O grupo "Acidentes de transporte" do SIM já é o total; somá-lo aos subgrupos duplicaria os óbitos. O dashboard parte do total e avisa o usuário ao detalhar.
+
+### 12.3 Limitações e cuidados de interpretação
+
+- **Escopos diferentes entre as fontes.** A PRF cobre apenas **rodovias federais**; SIM e MGDI cobrem o território todo. Os números absolutos **não são comparáveis** entre fontes, e o ranking de UFs (gráfico 4) não representa a mortalidade total do estado.
+- **Raça/cor sem recorte territorial.** O SIM utilizado é nacional, então não é possível cruzar raça/cor com UF.
+- **"Ignorado" no denominador.** O cartão 3 inclui "ignorado" no total, o que tende a **subestimar** a participação de pretos e pardos quando o preenchimento é ruim.
+- **Cobertura temporal distinta.** A PRF cobre 2021–2025 e o MGDI vai até 2024; o filtro de período usa a união dos anos, então algumas fontes podem ter menos anos que outras em um mesmo intervalo.
+- **Escopo do grupo "Acidentes de transporte".** Por ser o total da causa no SIM, pode abranger modalidades não rodoviárias, a depender do recorte exportado do TABNET; convém conferir ao interpretar o cartão 1.
+- **Associação, não causalidade.** Os dados são agregados e descritivos; não permitem inferir causas.
+
+---
+
+## 13. Execução e Deploy do Dashboard
+
+O dashboard só precisa de um banco PostgreSQL **já carregado** (Aiven ou local) e da URL de conexão em `st.secrets["db_url"]`.
+
+### 13.1 Executar localmente
+
+1. Crie o arquivo `.streamlit/secrets.toml` na raiz do repositório. Ele já está no `.gitignore`, e o Streamlit lê a pasta `.streamlit/` do diretório onde o comando é executado:
+
+```toml
+# .streamlit/secrets.toml  (NUNCA versionar)
+db_url = "postgresql+psycopg2://avnadmin:SENHA@HOST:PORTA/db_transito_brasil?sslmode=require"
+```
+
+   Para o banco local de desenvolvimento, use `postgresql+psycopg2://postgres:SENHA@localhost:5432/db_transito_brasil`.
+
+2. Instale as dependências e execute, em **um comando**:
+
+```bash
+pip install -r dashboard/requirements.txt && streamlit run dashboard/app.py
+```
+
+O dashboard abre em http://localhost:8501.
+
+### 13.2 Publicar no Streamlit Community Cloud
+
+1. Mantenha este código em um repositório no GitHub (os segredos **não** vão no repositório).
+2. Em [share.streamlit.io](https://share.streamlit.io), clique em **New app** e selecione o repositório, a branch `main` e o *Main file path* **`dashboard/app.py`**. As dependências são lidas de `dashboard/requirements.txt`.
+3. Em **Advanced settings → Secrets**, cole o conteúdo do `secrets.toml` acima (`db_url = "..."`).
+4. Garanta que o Aiven aceita conexões do Streamlit Cloud (o `ip_filter_object` de `infra/aiven/main.tf` já libera os IPs dinâmicos).
+5. Clique em **Deploy**. A versão em produção deste projeto está em: https://big-data-project-sbqwmipsjzjwtopxganx2j.streamlit.app/
+
+### 13.3 Provisionar o Aiven e carregar os dados
+
+1. Provisione o serviço com Terraform, conforme a [seção 4](#nuvem-postgresql-gerenciado-no-aiven-infraaiven) e o [`infra/aiven/README.md`](infra/aiven/README.md).
+2. Com os CSVs já tratados em `data/versao.resultado/` (etapa de ETL da [seção 6](#6-guia-de-execução-e-reprodução)), aponte o script de carga para o serviço por variáveis de ambiente e execute-o:
+
+```bash
+export DB_HOST="<host do serviço>"
+export DB_PORT="<porta do serviço>"
+export DB_USER="avnadmin"
+export DB_PASS="<senha do serviço>"
+export DB_NAME="db_transito_brasil"
+export PGSSLMODE="require"          # o Aiven exige TLS
+python3 scripts/carregar_postgres.py
+```
+
+| Variável | Padrão | Observação |
+|----------|--------|------------|
+| `DB_PASS` | n/d | **Obrigatória** |
+| `DB_USER` | `postgres` | No Aiven: `avnadmin` |
+| `DB_HOST` | `localhost` | No Aiven: host do serviço |
+| `DB_PORT` | `5432` | No Aiven: porta do serviço |
+| `DB_NAME` | `db_transito_brasil` | |
+
+> ⚠️ O `service_uri` retornado pelo Terraform aponta, por padrão, para o banco `defaultdb`. Como as tabelas são carregadas em `db_transito_brasil`, **troque o nome do banco no final da URI** ao montar a `db_url` do dashboard.
+
+### 13.4 Segurança
+
+- **Nunca versionar** `terraform.tfvars`, `*.tfstate`, `.streamlit/secrets.toml` nem tokens; todos já estão no `.gitignore`.
+- O token do Aiven é passado por `TF_VAR_aiven_api_token` (variável `sensitive`), e a `service_uri` é um *output* `sensitive`.
+- O `ip_filter_object` libera `0.0.0.0/0` porque o Streamlit Cloud não possui IP fixo; a proteção fica por conta de TLS e de senha forte. Como melhoria, recomenda-se criar um **usuário somente leitura** no Aiven para o dashboard.
 
 ---
 
